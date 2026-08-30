@@ -1,0 +1,12 @@
+name: mint_voucher
+description: >-
+  The remote service, standing in. Holds the signing key, mints vouchers bound
+  to a device, an action, an interval, a target and a session value.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  cryptography: ^2.7.0

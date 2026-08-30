@@ -1,0 +1,19 @@
+name: device_payment_nodes
+description: >-
+  Node samples for the device payment platform. Each one is an MCP server that
+  declares what it offers and under what conditions, which is the platform's
+  whole idea of what a node is.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  mcp_server: ^2.2.3
+  qr: ^3.0.2
+
+dev_dependencies:
+  async: ^2.13.1
+  lints: ^6.0.0
+  test: ^1.25.0

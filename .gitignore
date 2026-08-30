@@ -1,0 +1,18 @@
+# The signing key. This is the whole point of the arrangement being asymmetric:
+# the device holds the public half and cannot mint an authority, and neither can
+# anyone who reads this repository. Regenerate your own with
+# `dart run bin/mint.dart keygen` — which also rewrites src/service_pubkey.inc,
+# so reflash the board afterwards or every voucher is refused.
+embedded/locker_node/tools/mint_voucher/keys.json
+
+# Build output. Arduino copies the entire sketch folder in here, key and all.
+embedded/locker_node/build/
+nodes/.dart_tool/
+**/.dart_tool/
+.dart_tool/
+
+# Host harness binaries — built from the same sources in one command.
+embedded/locker_node/host/*_host
+*.o
+
+.DS_Store
