@@ -16,6 +16,7 @@
 - [`nodes/`](nodes/README.md) — **노드 샘플 다섯.** 실제로 뜨고 열리고 촬영되는 기계들
 - [`design/`](design/) — **설계 문서.** 착수 전에 여기부터 선다. 지금: [무인보관함 노드](design/locker-node-2026-08-30.md)
 - [`embedded/locker_node/`](embedded/locker_node/README.md) — **증표를 검증하는 임베디드 노드.** 설계 §8 검증 13건 호스트 통과 · 보드 플래시 대기
+- [`content/`](content/README.md) — **기사·키노트·영상.** 증거로 만드는 것이지 증거가 아니다 (콘피)
 
 스펙은 여기로 옮기지 않는다. 계약의 정본은 `specs/` 이고 이 폴더는 **그 계약이 실물에서
 서는지를 어디서 어떻게 확인하는가**만 관리한다.
