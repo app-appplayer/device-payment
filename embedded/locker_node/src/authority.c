@@ -34,7 +34,28 @@ static char s_reason[96] = "no voucher presented";
  * span being measured, and a locker can go days without a phone near it. */
 static int s_renewing = 0;
 static unsigned long s_unit_s = 0;
+/* The device also refuses to place its estimate before the start of the
+ * authority it most recently accepted.
+ *
+ * Measured: as the state stands this rule cannot fire. The backward rule above
+ * catches the same corrections first, because a voucher that was accepted had
+ * to be valid at the time — so its window starts at or before the estimate,
+ * never after.
+ *
+ * It is kept because that is a property of the state, not of the rule, and the
+ * state is about to change. A real locker must survive a power cut: a rental
+ * that vanishes when the mains blink would free every door in the building. The
+ * moment the authority is persisted and the time estimate is not, this floor is
+ * the only thing standing between a rebooted machine and a first correction
+ * placed anywhere the presenter likes. Written now, with the reason, rather
+ * than discovered missing then. */
+static unsigned long s_accepted_not_before = 0;
+
 static unsigned long s_entered_ms = 0;
+/* Entry in wall time as well as ticks. The tick is what the patent asks for
+ * between presentations; the wall time is what lets an accumulation resume
+ * after a power cut, where there are no ticks to have counted. */
+static unsigned long s_entered_wall_s = 0;
 
 static unsigned long s_window_s = 0;
 static unsigned long s_window_opened_ms = 0;
@@ -55,9 +76,70 @@ static const authority_offer_t* offer_for(const char* action) {
     return 0;
 }
 
+/* What survives the mains going out.
+ *
+ * The authority and the replay counter, because a rebooted machine that
+ * forgets either is a machine that opens for a voucher already used or refuses
+ * one already paid for. NOT the time estimate: uptime restarts at zero and no
+ * presented time survives, so the board wakes up holding a rental it cannot
+ * yet judge — and says so — until the next phone tells it what time it is.
+ *
+ * `magic` is versioned rather than a bare marker: a layout change on a machine
+ * with a rental in it must read as "nothing stored", not as a rental whose
+ * fields have shifted. */
+#define AUTHORITY_STORE_MAGIC 0x41555431UL /* "AUT1" */
+
+typedef struct {
+    unsigned long magic;
+    unsigned long valid_until_s;      /* fixed shape */
+    unsigned long entered_wall_s;     /* renewing shape: entry, in wall time */
+    unsigned long unit_s;
+    unsigned long max_session;
+    unsigned long accepted_not_before;
+    int have_authority;
+    int renewing;
+} authority_store_t;
+
+static int s_resumed = 0;
+
+static void persist(void) {
+    if (!s_cfg.store_write) return;
+    authority_store_t rec;
+    rec.magic = AUTHORITY_STORE_MAGIC;
+    rec.valid_until_s = s_valid_until_s;
+    rec.entered_wall_s = s_entered_wall_s;
+    rec.unit_s = s_unit_s;
+    rec.max_session = s_max_session;
+    rec.accepted_not_before = s_accepted_not_before;
+    rec.have_authority = s_have_authority;
+    rec.renewing = s_renewing;
+    s_cfg.store_write(&rec, sizeof(rec));
+}
+
 void authority_init(const authority_config_t* config) {
     s_cfg = *config;
+    if (!s_cfg.store_read) return;
+    authority_store_t rec;
+    if (!s_cfg.store_read(&rec, sizeof(rec))) return;
+    if (rec.magic != AUTHORITY_STORE_MAGIC) return;
+    /* The replay counter is restored whether or not an authority was held: a
+     * machine that forgets which session values it has seen will honour one of
+     * them a second time. */
+    s_max_session = rec.max_session;
+    s_accepted_not_before = rec.accepted_not_before;
+    if (!rec.have_authority) return;
+    s_have_authority = 1;
+    s_renewing = rec.renewing;
+    s_unit_s = rec.unit_s;
+    s_valid_until_s = rec.valid_until_s;
+    s_entered_wall_s = rec.entered_wall_s;
+    s_resumed = 1;
+    /* The latch is NOT restored. A door found open after a power cut is a door
+     * nobody chose to leave open. */
+    refuse("resumed after power loss - waiting for the time");
 }
+
+int authority_resumed(void) { return s_resumed; }
 
 const char* authority_occupancy_name(void) {
     return s_cfg.occupancy == AUTHORITY_SHARED ? "shared" : "exclusive";
@@ -143,22 +225,6 @@ static int b64url_decode(const char* in, size_t in_len,
 #define TIME_FORWARD_FLOOR_S 5UL
 #define TIME_FORWARD_DRIFT_SHIFT 6 /* elapsed/64 */
 
-/* The device also refuses to place its estimate before the start of the
- * authority it most recently accepted.
- *
- * Measured: as the state stands this rule cannot fire. The backward rule above
- * catches the same corrections first, because a voucher that was accepted had
- * to be valid at the time — so its window starts at or before the estimate,
- * never after.
- *
- * It is kept because that is a property of the state, not of the rule, and the
- * state is about to change. A real locker must survive a power cut: a rental
- * that vanishes when the mains blink would free every door in the building. The
- * moment the authority is persisted and the time estimate is not, this floor is
- * the only thing standing between a rebooted machine and a first correction
- * placed anywhere the presenter likes. Written now, with the reason, rather
- * than discovered missing then. */
-static unsigned long s_accepted_not_before = 0;
 
 /* The proximity event carries the time. A correction that moves the estimate
  * meaningfully BACKWARD is refused: winding the clock back is the cheapest way
@@ -330,6 +396,8 @@ int authority_present(const char* args, size_t args_len,
         s_window_live = 0;
         if (s_cfg.actuate) s_cfg.actuate(0);
         s_max_session = session;
+        s_resumed = 0;
+        persist();
         snprintf(s_reason, sizeof(s_reason), "released after %lu unit(s)",
                  units);
         mcp_writer_str(out, "[{\"type\":\"text\",\"text\":\"released units=");
@@ -342,12 +410,20 @@ int authority_present(const char* args, size_t args_len,
     s_accepted_not_before = not_before;
     s_have_authority = 1;
     s_entered_ms = board_uptime_ms();
+    s_entered_wall_s = s_time_known ? now_s() : 0;
+    s_resumed = 0;
     s_expired = 0;
     /* The window starts at acceptance, not at connect: what it bounds is the
      * gap between authorising and acting. */
     s_window_opened_ms = board_uptime_ms();
     s_window_live = (s_window_s > 0);
     s_valid_until_s = not_after;
+    /* Written after every field it stores is set, not in the middle of setting
+     * them. Persisting early wrote an interval of zero and the machine came
+     * back holding a rental it declared expired on the spot — the fields were
+     * right in RAM and wrong on disk, which is the hardest version of this
+     * bug to see. */
+    persist();
     if (s_renewing) {
         /* No "until". Saying one would name a moment this authority does not
          * have — it renews until someone releases it, and a screen promising
@@ -392,6 +468,11 @@ int authority_act(const char* args, size_t args_len,
         refuse("session window closed — present again");
     } else {
         s_open = 1;
+        /* The reason is what the screen shows, so a success has to write one.
+         * Left alone it kept the last refusal and the page read `OPEN ...
+         * reason=no time yet` — the door open and the words saying it could
+         * not be. */
+        refuse("open");
         if (s_cfg.actuate) s_cfg.actuate(1);
         mcp_writer_str(out, "[{\"type\":\"text\",\"text\":\"open\"}]");
         return 0;
@@ -466,6 +547,13 @@ unsigned long authority_remaining_s(void) {
  * exactly what is being measured. */
 unsigned long authority_units(void) {
     if (!s_renewing || !s_have_authority || s_unit_s == 0) return 0;
+    /* Resumed after a power cut there are no ticks to have counted, so the
+     * wall clock carries it — the occupancy did not pause because the mains
+     * did. Both bounds on the estimate are what make that safe to trust. */
+    if (s_resumed) {
+        if (!s_time_known || s_entered_wall_s == 0) return 0;
+        return 1UL + (now_s() - s_entered_wall_s) / s_unit_s;
+    }
     const unsigned long elapsed_s = (board_uptime_ms() - s_entered_ms) / 1000UL;
     return 1UL + elapsed_s / s_unit_s;
 }
@@ -506,5 +594,6 @@ void authority_tick(void) {
         s_open = 0;
         if (s_cfg.actuate) s_cfg.actuate(0);
         refuse("authority expired");
+        persist();
     }
 }

@@ -68,6 +68,23 @@ typedef enum {
     AUTHORITY_SHARED,    /* order does not matter — a chute */
 } authority_occupancy;
 
+/* Where the authority is kept across a power cut.
+ *
+ * A rental that vanishes when the mains blink would free every door in the
+ * building, so the authority has to outlive the board. The estimate of the
+ * time does NOT — uptime restarts at zero and the presented time is gone —
+ * and that asymmetry is the whole reason the floor at the accepted voucher's
+ * window exists: on a machine that wakes up holding an authority but no clock,
+ * it is the only thing between a first correction and anywhere the presenter
+ * likes.
+ *
+ * Supplied by the target rather than the platform: a board has emulated
+ * EEPROM, a virtual node has a file, and neither belongs in here. `read`
+ * returns non-zero when it filled the buffer. Absent hooks mean a machine that
+ * forgets, which is a choice a target is allowed to make explicitly. */
+typedef void (*authority_store_write_fn)(const void* data, unsigned long len);
+typedef int (*authority_store_read_fn)(void* data, unsigned long len);
+
 /* What the machine does when an authority stands. Called only after every
  * check has passed. `on` is 1 to act, 0 to stand down. */
 typedef void (*authority_actuate_fn)(int on);
@@ -83,6 +100,8 @@ typedef struct {
     const unsigned char* service_pubkey;
     authority_occupancy occupancy;
     authority_actuate_fn actuate;
+    authority_store_write_fn store_write;
+    authority_store_read_fn store_read;
 } authority_config_t;
 
 void authority_init(const authority_config_t* config);
@@ -123,6 +142,12 @@ void authority_session_reset(void);
  * cannot show its terms must say that, not show nothing.
  */
 int authority_page_fits(char* buf, size_t cap, int written, const char* title);
+
+/* Whether the authority currently held was restored from storage rather than
+ * granted in this run. A machine that came back up holding a rental it cannot
+ * yet judge has to say so — to a person waiting at the door, "wait for a
+ * phone" and "you have nothing" are not the same sentence. */
+int authority_resumed(void);
 
 /* Called from the serve loop. Drops the authority the moment its interval
  * ends, which is what makes expiry happen with nothing arriving to cause it. */

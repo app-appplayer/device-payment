@@ -21,6 +21,12 @@
 #include "json_min.h"
 #include "node_board.h"
 #include <stdio.h>
+
+/* Supplied by the target — a board's flash, a virtual node's file. The domain
+ * only passes them along; where a rental is kept is not a locker's business
+ * any more than a signature is. */
+extern authority_store_write_fn node_store_write;
+extern authority_store_read_fn node_store_read;
 #include <string.h>
 
 /* Jump to the chip's USB bootloader. Provided by the board binding; absent on
@@ -163,6 +169,8 @@ void domain_init(mcp_server_t* s, mcp_transport_t transport,
         .offer_count = (int)(sizeof(OFFERS) / sizeof(OFFERS[0])),
         .service_pubkey = SERVICE_PUBKEY,
         .occupancy = AUTHORITY_EXCLUSIVE,
+        .store_write = node_store_write,
+        .store_read = node_store_read,
         .actuate = latch,
     };
     authority_init(&cfg);

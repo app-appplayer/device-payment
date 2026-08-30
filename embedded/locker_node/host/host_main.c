@@ -11,6 +11,7 @@
 #include "domain.h"
 #include "mcp_stream_serve.h"
 #include "node_board.h"
+#include "authority.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -42,6 +43,34 @@ unsigned long board_uptime_ms(void) {
     if (base == 0) base = now;
     return now - base;
 }
+
+/* Where a virtual node keeps what must outlive it. A file, because a process
+ * that is killed and restarted is this build's power cut and the check that
+ * matters is what comes back. Path from the environment so two machines on one
+ * desk do not share a rental. */
+static const char* store_path(void) {
+    const char* p = getenv("NODE_STORE");
+    return p ? p : "/tmp/device-payment-node.store";
+}
+
+static void host_store_write(const void* data, unsigned long len) {
+    FILE* f = fopen(store_path(), "wb");
+    if (!f) return;
+    fwrite(data, 1, (size_t)len, f);
+    fclose(f);
+}
+
+static int host_store_read(void* data, unsigned long len) {
+    FILE* f = fopen(store_path(), "rb");
+    if (!f) return 0;
+    const size_t n = fread(data, 1, (size_t)len, f);
+    fclose(f);
+    return n == (size_t)len;
+}
+
+/* Handed to the domain, which hands them to the platform. */
+authority_store_write_fn node_store_write = host_store_write;
+authority_store_read_fn node_store_read = host_store_read;
 
 static mcp_stream_serve_t s_serve;
 

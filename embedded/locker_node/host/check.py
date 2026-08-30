@@ -12,6 +12,7 @@ that passes here passes for the same reason it will pass on hardware.
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -43,7 +44,8 @@ class Node:
 
     def __init__(self):
         self.p = subprocess.Popen([str(NODE)], stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE)
+                                  stdout=subprocess.PIPE,
+                                  env=dict(os.environ, NODE_STORE=STORE))
         self._id = 0
         self._send({"jsonrpc": "2.0", "id": self._next(), "method": "initialize",
                     "params": {"protocolVersion": "2025-03-26",
@@ -83,6 +85,11 @@ class Node:
         self.p.wait(timeout=5)
 
 
+# Its own store, cleared first. The machines remember now — an authority
+# outlives the process — so a check that does not say which machine state it
+# starts from is a check whose result depends on what ran before it. One did:
+# a leftover rental turned the first presentation into a release.
+STORE = "/tmp/device-payment-check.store"
 FAILED = []
 
 
@@ -94,6 +101,8 @@ def check(number, what, condition, detail=""):
 
 
 def main():
+    if os.path.exists(STORE):
+        os.remove(STORE)
     now = int(time.time())
     session = 100
 

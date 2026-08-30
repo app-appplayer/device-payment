@@ -18,6 +18,7 @@ What has to hold, and none of it is optional:
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -26,6 +27,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 NODE = HERE / "parking_host"
 MINT = HERE.parent / "tools" / "mint_voucher"
+# Its own store, cleared first. The machines remember now — an authority
+# outlives the process — so a check that does not say which machine state it
+# starts from is a check whose result depends on what ran before it. One did:
+# a leftover rental turned the first presentation into a release.
+STORE = "/tmp/device-payment-renewing.store"
 FAILED = []
 
 
@@ -44,7 +50,8 @@ def mint(action, session, seconds=600, target="GATE1", not_before=None):
 class Node:
     def __init__(self):
         self.p = subprocess.Popen([str(NODE)], stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE)
+                                  stdout=subprocess.PIPE,
+                                  env=dict(os.environ, NODE_STORE=STORE))
         self.id = 0
         self._send({"jsonrpc": "2.0", "id": self._next(), "method": "initialize",
                     "params": {"protocolVersion": "2025-03-26",
@@ -83,6 +90,8 @@ def check(number, what, condition, detail=""):
 
 
 def main():
+    if os.path.exists(STORE):
+        os.remove(STORE)
     n = Node()
     print("parking — the renewing branch (patent §4.3)")
 

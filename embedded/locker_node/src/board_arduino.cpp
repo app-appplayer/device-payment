@@ -4,6 +4,8 @@
  * through the STM32H7 GPIOE registers here (the board HAL is inherently
  * platform-specific). millis() is still the Arduino core's. */
 #include <Arduino.h>
+#include <EEPROM.h>
+#include "authority.h"
 
 extern "C" {
 void board_arduino_init(void);
@@ -90,4 +92,29 @@ extern "C" void board_enter_dfu(void) {
     __enable_irq();
     entry();
     while (1) { }
+}
+
+/* Where the board keeps what must outlive a power cut.
+ *
+ * STM32duino emulates EEPROM in a flash page: a read is cheap, a write erases
+ * and rewrites the page. That is fine here — the authority changes when
+ * someone pays or leaves, not per tick — and it would not be fine if anything
+ * wrote on a timer. Nothing does.
+ */
+extern "C" void board_store_write(const void* data, unsigned long len) {
+    const uint8_t* p = (const uint8_t*)data;
+    for (unsigned long i = 0; i < len; i++) eeprom_buffered_write_byte(i, p[i]);
+    eeprom_buffer_flush();
+}
+
+extern "C" int board_store_read(void* data, unsigned long len) {
+    eeprom_buffer_fill();
+    uint8_t* p = (uint8_t*)data;
+    for (unsigned long i = 0; i < len; i++) p[i] = eeprom_buffered_read_byte(i);
+    return 1;
+}
+
+extern "C" {
+authority_store_write_fn node_store_write = board_store_write;
+authority_store_read_fn node_store_read = board_store_read;
 }
