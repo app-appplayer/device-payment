@@ -1,0 +1,8 @@
+자판기 — 검증 코드는 한 줄도 쓰지 않았다
+
+$ 서명 1바이트 변조     → refused: signature does not verify
+$ 남의 기기 증표        → refused: voucher is for another device
+$ 안 파는 액션          → refused: action was never offered by this node
+$ 남의 슬롯             → refused: voucher is for another target
+$ 정상 증표             → accepted vend-water
+$ 같은 증표 재사용      → refused: session already used

@@ -34,13 +34,14 @@
 그리고 보관함에 하던 공격을 그대로 해 봤다.
 
 ```
-자판기 — 같은 플랫폼, 같은 보장
-  ok  유효 증표 수용        ok  배출
-  ok  서명 1바이트 변조 거절
-  ok  남의 기기 증표 거절
-  ok  선언 안 한 액션 거절
-  ok  남의 슬롯 거절
-  ok  재생 거절
+자판기 — 검증 코드는 한 줄도 쓰지 않았다
+
+$ 서명 1바이트 변조     → refused: signature does not verify
+$ 남의 기기 증표        → refused: voucher is for another device
+$ 안 파는 액션          → refused: action was never offered by this node
+$ 남의 슬롯             → refused: voucher is for another target
+$ 정상 증표             → accepted vend-water
+$ 같은 증표 재사용      → refused: session already used
 ```
 
 전부 선다. 새 기계에 보장을 **옮겨 붙인 게 아니라**, 처음부터 그 자리에 있던 것이다.
@@ -96,6 +97,9 @@ reason=session window closed — present again
 판다. 처음 한 단위 말고는 미리 사는 게 없고, 차가 서 있는 동안 권한이 스스로 갱신된다.
 
 차를 세우고 아홉 시간이 지났다. 그동안 폰은 근처에 없었다. 기계는 계속 세고 있다.
+
+기다리며 확인하기는 곤란하니 단위를 2초로 줄인 제안을 하나 두고 돌려 봤다. 물리고 아무것도
+보내지 않은 채 놔두면 숫자만 올라간다.
 
 ```
 OPEN  units=4  reason=accepted park-demo-2s - renewing until released

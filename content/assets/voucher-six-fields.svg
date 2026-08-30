@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" width="760" height="420" font-family="-apple-system, 'Helvetica Neue', 'Apple SD Gothic Neo', sans-serif">
+  <style>
+    .bg { fill: #fbfbfd; }
+    .card { fill: #fff; stroke: #d9d9e3; stroke-width: 1; rx: 10; }
+    .key { fill: #16161a; font-size: 15px; font-weight: 600; font-family: ui-monospace, Menlo, monospace; }
+    .desc { fill: #55555f; font-size: 13.5px; }
+    .title { fill: #16161a; font-size: 19px; font-weight: 700; }
+    .sub { fill: #6b6b76; font-size: 13px; }
+    .sigcard { fill: #f4f2ff; stroke: #c9c2f5; stroke-width: 1; rx: 10; }
+    .brace { stroke: #a79df0; stroke-width: 1.6; fill: none; }
+    .note { fill: #6a5fd0; font-size: 12.5px; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="760" height="420"/>
+
+  <text class="title" x="40" y="46">폰이 들고 오는 것</text>
+  <text class="sub" x="40" y="68">기계는 돈을 받지 않는다. 판단할 재료를 받는다.</text>
+
+  <!-- five signed fields -->
+  <rect class="card" x="40" y="92" width="330" height="50"/>
+  <text class="key" x="58" y="114">deviceId</text>
+  <text class="desc" x="58" y="132">어느 기계에게 주는 것인가</text>
+
+  <rect class="card" x="40" y="152" width="330" height="50"/>
+  <text class="key" x="58" y="174">action</text>
+  <text class="desc" x="58" y="192">무엇을 하라는 것인가</text>
+
+  <rect class="card" x="40" y="212" width="330" height="50"/>
+  <text class="key" x="58" y="234">notBefore / notAfter</text>
+  <text class="desc" x="58" y="252">언제부터 언제까지</text>
+
+  <rect class="card" x="40" y="272" width="330" height="50"/>
+  <text class="key" x="58" y="294">target</text>
+  <text class="desc" x="58" y="312">그 기계의 어느 칸인가</text>
+
+  <rect class="card" x="40" y="332" width="330" height="50"/>
+  <text class="key" x="58" y="354">session</text>
+  <text class="desc" x="58" y="372">이 증표의 일련번호</text>
+
+  <!-- brace -->
+  <path class="brace" d="M382 96 q10 0 10 10 v112 q0 10 10 10 q-10 0 -10 10 v112 q0 10 -10 10"/>
+
+  <!-- signature -->
+  <rect class="sigcard" x="424" y="200" width="296" height="86"/>
+  <text class="key" x="444" y="230">sig</text>
+  <text class="desc" x="444" y="252">서비스가 위 다섯에 건 서명</text>
+  <text class="desc" x="444" y="272">Ed25519</text>
+
+  <text class="note" x="424" y="318">서명은 JSON 이 아니라</text>
+  <text class="note" x="424" y="338">다섯 값을 고정 순서로 이은 문자열에 건다.</text>
+  <text class="note" x="424" y="358">기계가 읽은 값으로 그 문자열을 다시 만들어</text>
+  <text class="note" x="424" y="378">검증하므로, 무시한 필드는 서명에도 없다.</text>
+
+  <text class="sub" x="424" y="120">금액은 없다.</text>
+  <text class="sub" x="424" y="142">기계는 얼마인지 알 필요가 없다 —</text>
+  <text class="sub" x="424" y="164">열지 말지만 정하면 된다.</text>
+</svg>

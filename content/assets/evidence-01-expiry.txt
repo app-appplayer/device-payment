@@ -1,0 +1,7 @@
+$ voucher.present  → accepted locker-demo-20s
+$ locker.open      → open
+
+   … 12초. 아무것도 보내지 않는다 …
+
+$ locker.open      → refused: authority expired
+$ locker.status    → LOCKED remaining=0s session=1 time=synced reason=authority expired

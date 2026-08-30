@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 430" width="760" height="430" font-family="-apple-system, 'Helvetica Neue', 'Apple SD Gothic Neo', sans-serif">
+  <style>
+    .bg { fill: #fbfbfd; }
+    .title { fill: #16161a; font-size: 19px; font-weight: 700; }
+    .sub { fill: #6b6b76; font-size: 13px; }
+    .plat { fill: #f4f2ff; stroke: #c9c2f5; stroke-width: 1.2; rx: 12; }
+    .dom { fill: #fff; stroke: #d9d9e3; stroke-width: 1; rx: 12; }
+    .h { fill: #16161a; font-size: 15px; font-weight: 700; }
+    .m { fill: #16161a; font-size: 13px; font-family: ui-monospace, Menlo, monospace; }
+    .d { fill: #55555f; font-size: 12.5px; }
+    .tag { fill: #6a5fd0; font-size: 12px; font-weight: 600; }
+    .line { stroke: #c9c2f5; stroke-width: 1.4; fill: none; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="760" height="430"/>
+
+  <text class="title" x="40" y="44">한 번만 쓰는 것과, 기계마다 쓰는 것</text>
+  <text class="sub" x="40" y="66">기계마다 다시 쓰면 구멍도 기계마다 생긴다.</text>
+
+  <!-- platform -->
+  <rect class="plat" x="40" y="90" width="680" height="104"/>
+  <text class="h" x="62" y="120">플랫폼 — 한 번만 쓴다</text>
+  <text class="m" x="62" y="144">authority.c</text>
+  <text class="d" x="62" y="168">증표 검증 · 재생 거부 · 권한 구간 · 시각 추정 · 세션 창 · 정전 생존 · 기기 신원</text>
+
+  <!-- connectors -->
+  <path class="line" d="M180 194 v26"/>
+  <path class="line" d="M380 194 v26"/>
+  <path class="line" d="M580 194 v26"/>
+
+  <!-- domains -->
+  <rect class="dom" x="40" y="220" width="200" height="170"/>
+  <text class="h" x="62" y="250">보관함</text>
+  <text class="d" x="62" y="278">판다 — 4시간 · 하루</text>
+  <text class="d" x="62" y="302">점유 — 하나</text>
+  <text class="d" x="62" y="326">구동 — 래치</text>
+  <text class="tag" x="62" y="362">289줄</text>
+
+  <rect class="dom" x="280" y="220" width="200" height="170"/>
+  <text class="h" x="302" y="250">자판기</text>
+  <text class="d" x="302" y="278">판다 — 물 · 커피</text>
+  <text class="d" x="302" y="302">점유 — 여럿</text>
+  <text class="d" x="302" y="326">구동 — 오거</text>
+  <text class="tag" x="302" y="362">검증 코드 0줄</text>
+
+  <rect class="dom" x="520" y="220" width="200" height="170"/>
+  <text class="h" x="542" y="250">주차</text>
+  <text class="d" x="542" y="278">판다 — 30분 단위</text>
+  <text class="d" x="542" y="302">점유 — 하나</text>
+  <text class="d" x="542" y="326">구동 — 차단기</text>
+  <text class="tag" x="542" y="362">나가는 탭이 총액</text>
+
+  <text class="sub" x="40" y="416">도메인이 답하는 것은 셋뿐이다 — 무엇을 파나 · 점유하나 · 무엇을 구동하나.</text>
+</svg>

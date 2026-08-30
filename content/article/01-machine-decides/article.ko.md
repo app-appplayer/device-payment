@@ -69,17 +69,18 @@
 말로 하면 그럴듯하다. 그래서 8초짜리 권한을 만들어 물려 봤다.
 
 ```
-present  → accepted locker-demo-20s
-open     → open
+$ voucher.present  → accepted locker-demo-20s
+$ locker.open      → open
 ```
 
 LED가 켜진다. 그리고 **아무것도 하지 않았다.** 명령도, 알림도, 만료를 알리는 메시지도 보내지
 않았다. 12초를 그냥 흘려보냈다.
 
 ```
-… 12초, 아무 입력 없음 …
+   … 12초. 아무것도 보내지 않는다 …
 
-open     → refused: authority expired
+$ locker.open      → refused: authority expired
+$ locker.status    → LOCKED remaining=0s time=synced reason=authority expired
 ```
 
 LED가 꺼져 있다.
@@ -136,7 +137,7 @@ reason=resumed after power loss - waiting for the time
 전부 「지금 이 사람에게 이걸 해 줘도 되는가」를 혼자 판단해야 하는 기계다.
 
 서명 위조를 거절하고, 남의 기계 증표를 거절하고, 쓴 번호를 다시 거절하는 것 — 전부 같은 보드
-위에서 돈다. 실행 결과 전량은 저장소에 있다.
+위에서 돈다. 실행 결과 전량은 저장소에 있다(`host/board_check.py`).
 
 ---
 
