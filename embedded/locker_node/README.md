@@ -64,8 +64,13 @@ NODE_NAME='Vending A3' ./host/vending_host        --tcp 9112 &
 
 ## 돌려 보기 (보드 없이)
 
+**키 생성이 0단계다.** 저장소에는 키가 없다 — 기기 개인키가 공개되면 그 기기는 누구나
+흉내 낼 수 있고, 그 주장은 아무것도 증명하지 않는다. 서비스 공개키도 함께 뺐다: 반쪽만
+실린 것은 「이 저장소에 쓸 수 있는 키가 있다」로 읽히기 때문이다. 키 없이 빌드하면 무엇을
+하라고 말해 준다.
+
 ```sh
-cd tools/mint_voucher && dart run bin/mint.dart keygen   # 최초 1회
+cd tools/mint_voucher && dart run bin/mint.dart keygen   # 최초 1회 — 서비스 키 + 기기 키
 cd ../.. && make -C host && python3 host/check.py
 ```
 

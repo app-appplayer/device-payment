@@ -115,7 +115,13 @@ def main():
     b = Board(PORT)
     print(f"locker node ON THE BOARD ({PORT}) — design §8")
 
-    session = int(time.time()) % 100000  # never reused across runs
+    # Above whatever this board has already accepted, read from the board
+    # itself. Session values used to come from the clock, which worked until
+    # the replay ceiling started surviving power cuts: the board then held a
+    # number no wall-clock-derived value could exceed and refused every
+    # voucher in this file. The board was right and the test was wrong.
+    seen = int(b.call("locker.status").split("session=")[1].split()[0])
+    session = seen + 1
 
     # 2 and 2b need a board that has not been told the time yet, which means a
     # board that has just booted. It keeps its estimate across links — it is

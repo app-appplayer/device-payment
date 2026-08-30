@@ -163,35 +163,6 @@ void authority_set_spec(const char* spec) { s_cfg.spec = spec; }
 
 int authority_resumed(void) { return s_resumed; }
 
-/* base64url without padding, for values that travel as JSON strings. */
-static void write_b64url(mcp_writer_t* out, const unsigned char* data,
-                         unsigned long len) {
-    static const char* A =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    char buf[4];
-    unsigned long i = 0;
-    while (i + 2 < len) {
-        const unsigned long v = ((unsigned long)data[i] << 16) |
-                                ((unsigned long)data[i + 1] << 8) | data[i + 2];
-        buf[0] = A[(v >> 18) & 63]; buf[1] = A[(v >> 12) & 63];
-        buf[2] = A[(v >> 6) & 63];  buf[3] = A[v & 63];
-        out->write(out, buf, 4);
-        i += 3;
-    }
-    if (i < len) {
-        const unsigned long rest = len - i;
-        unsigned long v = (unsigned long)data[i] << 16;
-        if (rest == 2) v |= (unsigned long)data[i + 1] << 8;
-        buf[0] = A[(v >> 18) & 63];
-        buf[1] = A[(v >> 12) & 63];
-        out->write(out, buf, 2);
-        if (rest == 2) {
-            buf[0] = A[(v >> 6) & 63];
-            out->write(out, buf, 1);
-        }
-    }
-}
-
 /* The bytes the device signs. Rebuilt from fields rather than from a rendered
  * document, for the same reason the voucher's are: the far end reconstructs
  * this exact string, so a field nobody parsed is a field nobody signed. */
@@ -203,7 +174,11 @@ static int build_assertion_input(char* buf, size_t cap, const char* device_id,
     return (n > 0 && (size_t)n < cap) ? n : -1;
 }
 
-/* Renders `data` as base64url into a NUL-terminated buffer. */
+/* base64url without padding, into a NUL-terminated buffer.
+ *
+ * One encoder, not two. There were briefly two — one writing to the wire and
+ * one to a buffer — which is the same table and the same arithmetic written
+ * twice, so a fix to either would have been a fix to half. */
 static void b64url_into(char* out, size_t cap, const unsigned char* data,
                         unsigned long len) {
     static const char* A =
@@ -282,7 +257,9 @@ int authority_assert(const char* args, size_t args_len, mcp_writer_t* out) {
     mcp_writer_str(out, "\\\",\\\"specHash\\\":\\\"");
     mcp_writer_str(out, hash_b64);
     mcp_writer_str(out, "\\\",\\\"sig\\\":\\\"");
-    write_b64url(out, sig, sizeof(sig));
+    char sig_b64[96];
+    b64url_into(sig_b64, sizeof(sig_b64), sig, sizeof(sig));
+    mcp_writer_str(out, sig_b64);
     mcp_writer_str(out, "\\\"}\"}]");
     return 0;
 }
@@ -704,6 +681,11 @@ int authority_state_json(const char* uri, mcp_writer_t* out) {
     write_ulong(out, remaining_s());
     mcp_writer_str(out, ",\"reason\":");
     mcp_writer_json_string(out, s_reason);
+    /* Machine-readable, beside the sentence. A host that has to match on prose
+     * to learn the machine is waiting for a clock will break the first time
+     * the prose improves. */
+    mcp_writer_str(out, ",\"resumed\":");
+    mcp_writer_str(out, authority_resumed() ? "true" : "false");
     mcp_writer_str(out, "}");
     return 0;
 }

@@ -26,16 +26,8 @@
 extern authority_store_write_fn node_store_write;
 extern authority_store_read_fn node_store_read;
 
-static const unsigned char SERVICE_PUBKEY[32] = {
-#include "service_pubkey.inc"
-};
+#include "node_keys.h"
 
-/* This machine's own identity key. Different key, different job: it says which
- * machine is speaking and cannot mint an authority. Not committed — a
- * published device key is a device anyone can impersonate. */
-static const unsigned char DEVICE_PRIVKEY[32] = {
-#include "device_privkey.inc"
-};
 
 /* Short authorities, short windows: you are standing at the machine. A minute
  * to take what you paid for is generous; an hour would mean a stranger's

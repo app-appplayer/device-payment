@@ -37,19 +37,10 @@ void board_enter_dfu(void);
  * the chip leaves. */
 static int s_dfu_requested = 0;
 
-/* The service public key, provisioned at build time. Flash, not a secure
- * element — this board has none, and that gap is written down rather than
- * papered over. Replaced by tools/mint_voucher.dart's key at build time. */
-static const unsigned char SERVICE_PUBKEY[32] = {
-#include "service_pubkey.inc"
-};
-
-/* This machine's own identity key. Different key, different job: it says which
- * machine is speaking and cannot mint an authority. Not committed — a
- * published device key is a device anyone can impersonate. */
-static const unsigned char DEVICE_PRIVKEY[32] = {
-#include "device_privkey.inc"
-};
+/* Both keys, and a readable failure when they have not been generated. Flash,
+ * not a secure element — this board has none, and that gap is written down
+ * rather than papered over. */
+#include "node_keys.h"
 
 /* ---- what this node offers -------------------------------------------- */
 

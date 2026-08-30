@@ -84,27 +84,15 @@ fetch** 하는 것이다 — 포트 정책은 건드리지 않는다. 시트 유
 
 ## 실기 보드 (하드웨어 필요)
 
-### `appplayer_pro/dart/integration_test/board_serial_live_test.dart` — **3 PASS**
+### `appplayer_pro/dart/integration_test/board_serial_live_test.dart` — **4 PASS**
 
-**WeAct H723 MCP Node 0.1.0**, USB CDC 로 붙은 실물. `serial:///dev/cu.usbmodem*` 을 출고
-커넥터로 걸어 연다(115200, ndjson).
-
-- 보드가 선언하고 이 티어가 그것을 렌더한다 — `On-board LED` · `Turn On` · `Turn Off` ·
-  `Read Info`. **이 문자열들은 여기서 쓴 것이 아니라 와이어에서 왔다.**
-- `Turn On` 을 누르면 **실제 LED 가 켜진다.** 앱이 무엇을 보냈다고 믿는지가 아니라 **보드에
-  되물어**(`sys.info`) 확인한다 — 호스트를 벗어나지 못한 도구 호출은 위젯 트리 안에서 똑같이 보인다.
-- `Turn Off` 로 꺼지는 것까지. 두 단언이 서로 반대라, 탭이 아무 일도 안 했다면 한쪽이 깨진다.
-
-**밟다가 걸린 것 둘**: ①테스트는 `main.dart` 를 안 거치므로 `configureSerialNativeLib()` 을
-직접 불러야 한다 — 없으면 `sp_get_port_by_name` 심볼 누락으로 죽고, 그건 고장난 보드처럼 읽힌다.
-②포트는 주인이 하나라 세션만 닫아선 안 놓인다. 커넥션 매니저가 클라이언트를 들고 있어 **코어까지
-내려야** 와이어가 빈다.
-
-보드가 없으면 이유를 말하고 **skip 한다** — 아무것도 안 잰 초록이 skip 보다 나쁘다.
+아래 §기기 신원 주장 앞의 항목과 같은 파일이다. 이 자리에 있던 설명은 보드가 `led`
+레퍼런스를 돌던 때의 것이라 걷어냈다 — 그 도메인은 이 보드에 더 이상 없고, 남겨 두면
+없는 검사를 있다고 적는 셈이다. 경위는 트랙에 있다.
 
 ## 임베디드 노드 — 증표 검증 (`embedded/locker_node/`)
 
-### `host/check.py` — **13 checks, all passed**
+### `host/check.py` — **25 checks, all passed**
 
 같은 도메인 C 를 맥에서 돌려 설계 §8 을 그대로 검사한다. 보드 없이 돈다.
 
@@ -126,7 +114,10 @@ fetch** 하는 것이다 — 포트 정책은 건드리지 않는다. 시트 유
 `no authority held` 로 덮어써서 **만료됐다는 사실이 화면에서 사라졌다.** 사람은 애초에 권한이
 없었다는 말을 듣게 된다. 만료 사유를 따로 보존하도록 고쳤다.
 
-### `host/board_check.py` — **23 checks, all passed ON THE BOARD** (2026-08-31)
+### `host/board_check.py` — **21 checks, all passed ON THE BOARD** (2026-08-31)
+
+스물하나이지 스물셋이 아니다. 냉부팅 전용 둘은 **시각을 이미 아는 보드에서 해당이 없고**,
+조용히 사라지는 대신 그렇게 말한다.
 
 같은 검사를 WeAct H723 실기에 대고 돌린다. **Ed25519 검증이 칩에서 실제로 돈다** — 변조 서명이
 보드에서 막힌다. 만료도 실기에서 확인했다: 구간이 끝나는 동안 **보드에 아무것도 보내지 않았고**
