@@ -14,6 +14,10 @@
 int locker_ed25519_verify(const unsigned char sig[64],
                           const unsigned char pub[32],
                           const char* msg, unsigned long msg_len);
+void locker_ed25519_sign(unsigned char sig[64], const unsigned char priv[32],
+                         const char* msg, unsigned long msg_len);
+void locker_sha512(unsigned char out[64], const char* msg,
+                   unsigned long msg_len);
 
 static authority_config_t s_cfg;
 
@@ -96,11 +100,16 @@ typedef struct {
     unsigned long unit_s;
     unsigned long max_session;
     unsigned long accepted_not_before;
+    unsigned long assert_counter;
     int have_authority;
     int renewing;
 } authority_store_t;
 
 static int s_resumed = 0;
+/* The assertion counter. Monotonic and persisted — a machine that restarts its
+ * count issues an assertion it has issued before, which is precisely what the
+ * counter exists to prevent. */
+static unsigned long s_assert_counter = 0;
 
 static void persist(void) {
     if (!s_cfg.store_write) return;
@@ -111,6 +120,7 @@ static void persist(void) {
     rec.unit_s = s_unit_s;
     rec.max_session = s_max_session;
     rec.accepted_not_before = s_accepted_not_before;
+    rec.assert_counter = s_assert_counter;
     rec.have_authority = s_have_authority;
     rec.renewing = s_renewing;
     s_cfg.store_write(&rec, sizeof(rec));
@@ -127,6 +137,7 @@ void authority_init(const authority_config_t* config) {
      * them a second time. */
     s_max_session = rec.max_session;
     s_accepted_not_before = rec.accepted_not_before;
+    s_assert_counter = rec.assert_counter;
     if (!rec.have_authority) return;
     s_have_authority = 1;
     s_renewing = rec.renewing;
@@ -139,12 +150,6 @@ void authority_init(const authority_config_t* config) {
     refuse("resumed after power loss - waiting for the time");
 }
 
-int authority_resumed(void) { return s_resumed; }
-
-const char* authority_occupancy_name(void) {
-    return s_cfg.occupancy == AUTHORITY_SHARED ? "shared" : "exclusive";
-}
-
 static void write_ulong(mcp_writer_t* out, unsigned long v) {
     char tmp[24]; int t = 0;
     if (v == 0) tmp[t++] = '0';
@@ -153,6 +158,139 @@ static void write_ulong(mcp_writer_t* out, unsigned long v) {
     while (t) rev[r++] = tmp[--t];
     out->write(out, rev, (size_t)r);
 }
+
+void authority_set_spec(const char* spec) { s_cfg.spec = spec; }
+
+int authority_resumed(void) { return s_resumed; }
+
+/* base64url without padding, for values that travel as JSON strings. */
+static void write_b64url(mcp_writer_t* out, const unsigned char* data,
+                         unsigned long len) {
+    static const char* A =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    char buf[4];
+    unsigned long i = 0;
+    while (i + 2 < len) {
+        const unsigned long v = ((unsigned long)data[i] << 16) |
+                                ((unsigned long)data[i + 1] << 8) | data[i + 2];
+        buf[0] = A[(v >> 18) & 63]; buf[1] = A[(v >> 12) & 63];
+        buf[2] = A[(v >> 6) & 63];  buf[3] = A[v & 63];
+        out->write(out, buf, 4);
+        i += 3;
+    }
+    if (i < len) {
+        const unsigned long rest = len - i;
+        unsigned long v = (unsigned long)data[i] << 16;
+        if (rest == 2) v |= (unsigned long)data[i + 1] << 8;
+        buf[0] = A[(v >> 18) & 63];
+        buf[1] = A[(v >> 12) & 63];
+        out->write(out, buf, 2);
+        if (rest == 2) {
+            buf[0] = A[(v >> 6) & 63];
+            out->write(out, buf, 1);
+        }
+    }
+}
+
+/* The bytes the device signs. Rebuilt from fields rather than from a rendered
+ * document, for the same reason the voucher's are: the far end reconstructs
+ * this exact string, so a field nobody parsed is a field nobody signed. */
+static int build_assertion_input(char* buf, size_t cap, const char* device_id,
+                                 unsigned long counter, const char* nonce_b64,
+                                 const char* spec_hash_b64) {
+    const int n = snprintf(buf, cap, "%s\n%lu\n%s\n%s", device_id, counter,
+                           nonce_b64, spec_hash_b64);
+    return (n > 0 && (size_t)n < cap) ? n : -1;
+}
+
+/* Renders `data` as base64url into a NUL-terminated buffer. */
+static void b64url_into(char* out, size_t cap, const unsigned char* data,
+                        unsigned long len) {
+    static const char* A =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    size_t o = 0;
+    unsigned long i = 0;
+    while (i + 2 < len && o + 4 < cap) {
+        const unsigned long v = ((unsigned long)data[i] << 16) |
+                                ((unsigned long)data[i + 1] << 8) | data[i + 2];
+        out[o++] = A[(v >> 18) & 63]; out[o++] = A[(v >> 12) & 63];
+        out[o++] = A[(v >> 6) & 63];  out[o++] = A[v & 63];
+        i += 3;
+    }
+    if (i < len && o + 3 < cap) {
+        const unsigned long rest = len - i;
+        unsigned long v = (unsigned long)data[i] << 16;
+        if (rest == 2) v |= (unsigned long)data[i + 1] << 8;
+        out[o++] = A[(v >> 18) & 63];
+        out[o++] = A[(v >> 12) & 63];
+        if (rest == 2) out[o++] = A[(v >> 6) & 63];
+    }
+    out[o] = 0;
+}
+
+int authority_assert(const char* args, size_t args_len, mcp_writer_t* out) {
+    (void)args; (void)args_len;
+    if (!s_cfg.device_privkey || !s_cfg.spec) {
+        mcp_writer_str(out, "[{\"type\":\"text\",\"text\":"
+            "\"refused: this node has no identity to assert\"}]");
+        return 0;
+    }
+
+    unsigned char nonce[16];
+    if (!board_random(nonce, sizeof(nonce))) {
+        /* No nonce, no assertion. Asserting with a predictable value would be
+         * worse than not asserting: it looks like proof and is not. */
+        mcp_writer_str(out, "[{\"type\":\"text\",\"text\":"
+            "\"refused: no entropy to draw a nonce\"}]");
+        return 0;
+    }
+    char nonce_b64[32];
+    b64url_into(nonce_b64, sizeof(nonce_b64), nonce, sizeof(nonce));
+
+    unsigned char spec_hash[64];
+    locker_sha512(spec_hash, s_cfg.spec, (unsigned long)strlen(s_cfg.spec));
+    char hash_b64[96];
+    b64url_into(hash_b64, sizeof(hash_b64), spec_hash, sizeof(spec_hash));
+
+    /* Advanced and persisted BEFORE the assertion goes out. A counter written
+     * after the reply is a counter a power cut can roll back, and the value
+     * whose whole purpose is never to repeat would repeat. */
+    s_assert_counter++;
+    persist();
+
+    char input[256];
+    const int len = build_assertion_input(input, sizeof(input),
+                                          s_cfg.device_id, s_assert_counter,
+                                          nonce_b64, hash_b64);
+    if (len < 0) {
+        mcp_writer_str(out, "[{\"type\":\"text\",\"text\":"
+            "\"refused: assertion did not fit\"}]");
+        return 0;
+    }
+
+    unsigned char sig[64];
+    locker_ed25519_sign(sig, s_cfg.device_privkey, input,
+                        (unsigned long)len);
+
+    mcp_writer_str(out, "[{\"type\":\"text\",\"text\":\"{");
+    mcp_writer_str(out, "\\\"deviceId\\\":\\\"");
+    mcp_writer_str(out, s_cfg.device_id);
+    mcp_writer_str(out, "\\\",\\\"counter\\\":");
+    write_ulong(out, s_assert_counter);
+    mcp_writer_str(out, ",\\\"nonce\\\":\\\"");
+    mcp_writer_str(out, nonce_b64);
+    mcp_writer_str(out, "\\\",\\\"specHash\\\":\\\"");
+    mcp_writer_str(out, hash_b64);
+    mcp_writer_str(out, "\\\",\\\"sig\\\":\\\"");
+    write_b64url(out, sig, sizeof(sig));
+    mcp_writer_str(out, "\\\"}\"}]");
+    return 0;
+}
+
+const char* authority_occupancy_name(void) {
+    return s_cfg.occupancy == AUTHORITY_SHARED ? "shared" : "exclusive";
+}
+
 
 static unsigned long parse_ulong(const char* p, size_t len) {
     unsigned long v = 0;

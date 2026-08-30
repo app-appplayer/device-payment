@@ -35,6 +35,13 @@ static const unsigned char SERVICE_PUBKEY[32] = {
 #include "service_pubkey.inc"
 };
 
+/* This machine's own identity key. Different key, different job: it says which
+ * machine is speaking and cannot mint an authority. Not committed — a
+ * published device key is a device anyone can impersonate. */
+static const unsigned char DEVICE_PRIVKEY[32] = {
+#include "device_privkey.inc"
+};
+
 /* Renewing: `seconds` is the unit period, not a duration. Half an hour is the
  * rate a driver is quoted, so it is the rate the machine counts in. */
 static const authority_offer_t OFFERS[] = {
@@ -90,6 +97,9 @@ static const mcp_tool_t PARKING_TOOLS[] = {
       "{\"type\":\"object\",\"properties\":{}}", authority_act },
     { "gate.status", "Bay state, units accumulated and the last reason",
       "{\"type\":\"object\",\"properties\":{}}", authority_status },
+    { "device.assert",
+      "This device's signed identity assertion, to be relayed unchanged",
+      "{\"type\":\"object\",\"properties\":{}}", authority_assert },
     { "time.sync", "Present the current time at this proximity event",
       "{\"type\":\"object\",\"properties\":{\"epoch\":{\"type\":\"integer\"}},"
       "\"required\":[\"epoch\"]}", authority_time_sync },
@@ -112,6 +122,10 @@ void domain_init(mcp_server_t* s, mcp_transport_t transport,
         .offers = OFFERS,
         .offer_count = (int)(sizeof(OFFERS) / sizeof(OFFERS[0])),
         .service_pubkey = SERVICE_PUBKEY,
+        .device_privkey = DEVICE_PRIVKEY,
+        /* Filled after the page is rendered: the hash covers what this node
+         * actually serves, so it cannot be taken before there is one. */
+        .spec = 0,
         /* One bay, one car. */
         .occupancy = AUTHORITY_EXCLUSIVE,
         .store_write = node_store_write,
@@ -172,6 +186,8 @@ void domain_init(mcp_server_t* s, mcp_transport_t transport,
             "]}}}",
         name, "euid_svLR9zNzvMlm4Db0tuEa", TARGET_REF, id);
     authority_page_fits(s_page, sizeof(s_page), page_len, name);
+    /* The declaration is now real, so the assertion can cover it. */
+    authority_set_spec(s_page);
 
     if (trust && trust[0]) {
         snprintf(s_manifest, sizeof(s_manifest),

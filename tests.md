@@ -189,6 +189,25 @@ BOOT0 였다.
 | **성공에 사유를 안 남겼다** | 문이 열렸는데 화면은 직전 거절(`no time yet`)을 그대로 보여 줬다 — 자기모순 |
 | **검사들이 저장소를 공유했다** | 기계가 기억하기 시작하자 앞 검사의 대여가 다음 검사의 첫 제시를 **해제로** 바꿨다. 검사마다 저장소를 갈랐다 |
 
+## 기기 신원 주장 — `host/assertion_check.py` **7 PASS** · 보드 **10 PASS**
+
+특허 §3.2, **반대 방향**. 기기가 `deviceId ‖ counter ‖ nonce ‖ H(선언)` 에 서명하고 서비스가
+검증한 뒤에만 발행한다.
+
+| 무엇 | 결과 |
+|---|---|
+| 칩이 자기 명세에 서명 | STM32H723 에서 Ed25519 서명 |
+| 주장 재사용 | `assertion counter N was already used` |
+| **안 서명한 명세 중계** | `the relayed declaration is not the one the device signed` |
+| 변조된 주장 | `the device assertion does not verify` |
+| 논스가 매번 다름 | H7 RNG 주변장치 |
+| **사슬의 끝** | 그렇게 발행된 증표를 그 기계가 수용하고 문이 열린다 |
+
+**보드를 멈추게 한 것**: `device.assert` 의 **RNG 무한 대기**. H7 의 RNG 는 커널 클럭(HSI48)이
+따로 있고 기본 꺼짐인데 버스 클럭만 켰다. `DRDY` 가 영영 안 서고 서브 루프가 안 돌아온다 —
+USB 는 인터럽트라 계속 열거되니 **겉보기엔 벽돌**이고 `sys.dfu` 조차 처리가 안 돼 소프트 복구도
+막혔다. 클럭을 켜고 **대기를 유한하게** 했다: 못 뽑으면 거절하고 노드는 산다.
+
 ## 가상 노드 — 보드 없이 대수를 늘린다
 
 ### `appplayer_pro/dart/integration_test/virtual_nodes_live_test.dart` — **9 PASS**

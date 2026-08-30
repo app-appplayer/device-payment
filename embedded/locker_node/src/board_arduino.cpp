@@ -118,3 +118,49 @@ extern "C" {
 authority_store_write_fn node_store_write = board_store_write;
 authority_store_read_fn node_store_read = board_store_read;
 }
+
+/* True random bytes for the device nonce.
+ *
+ * A nonce taken from a counter is not a nonce — the whole job of this value is
+ * that an observer cannot predict the next assertion. The H7 has an RNG
+ * peripheral, so it is used rather than approximated.
+ *
+ * Two things this got wrong the first time, both found by the board going
+ * silent mid-call:
+ *
+ *   - the peripheral has its own kernel clock and it is NOT on by default.
+ *     Enabling the bus clock alone leaves DRDY permanently clear.
+ *   - the wait was unbounded. A missing clock then stops the whole node inside
+ *     one tool call: USB keeps enumerating because it is interrupt-driven, the
+ *     serve loop never returns, and the machine looks bricked while being
+ *     perfectly healthy everywhere else. It could not even be told to reflash.
+ *
+ * So the clock is selected first and the wait is bounded. A machine that
+ * cannot draw a nonce says so and stays alive; it does not invent one, and it
+ * does not take the rest of the node down with it.
+ */
+extern "C" int board_random(unsigned char* out, unsigned long len) {
+    static bool started = false;
+    if (!started) {
+        /* HSI48 is the RNG's kernel clock and comes up disabled. */
+        RCC->CR |= RCC_CR_HSI48ON;
+        for (uint32_t spin = 0; !(RCC->CR & RCC_CR_HSI48RDY); spin++) {
+            if (spin > 1000000u) return 0;
+        }
+        __HAL_RCC_RNG_CLK_ENABLE();
+        RNG->CR |= RNG_CR_RNGEN;
+        started = true;
+    }
+    unsigned long i = 0;
+    while (i < len) {
+        uint32_t spin = 0;
+        while (!(RNG->SR & RNG_SR_DRDY)) {
+            if (++spin > 1000000u) return 0;
+        }
+        uint32_t word = RNG->DR;
+        for (int b = 0; b < 4 && i < len; b++, i++) {
+            out[i] = (unsigned char)(word >> (8 * b));
+        }
+    }
+    return 1;
+}

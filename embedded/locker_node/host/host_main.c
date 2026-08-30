@@ -72,6 +72,16 @@ static int host_store_read(void* data, unsigned long len) {
 authority_store_write_fn node_store_write = host_store_write;
 authority_store_read_fn node_store_read = host_store_read;
 
+/* The same job the board's RNG peripheral does. Read from the kernel rather
+ * than from a seeded generator: a predictable nonce is not a nonce. */
+int board_random(unsigned char* out, unsigned long len) {
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (!f) return 0;
+    const size_t n = fread(out, 1, (size_t)len, f);
+    fclose(f);
+    return n == (size_t)len;
+}
+
 static mcp_stream_serve_t s_serve;
 
 /* stdout for the stdio mode, a socket for the TCP one. The domain and the

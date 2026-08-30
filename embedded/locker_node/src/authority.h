@@ -98,6 +98,14 @@ typedef struct {
     int offer_count;
     /* The service public key this device verifies against. 32 bytes. */
     const unsigned char* service_pubkey;
+    /* This device's own private key, 32 bytes, used ONLY to say which machine
+     * is speaking. It cannot mint an authority — that takes the service key,
+     * which is not here and never will be. Provisioned into flash on this
+     * board; a secure element is where it belongs and this one has none. */
+    const unsigned char* device_privkey;
+    /* The declaration this device serves, hashed into every assertion so a
+     * relayer cannot present a specification the device did not make. */
+    const char* spec;
     authority_occupancy occupancy;
     authority_actuate_fn actuate;
     authority_store_write_fn store_write;
@@ -142,6 +150,32 @@ void authority_session_reset(void);
  * cannot show its terms must say that, not show nothing.
  */
 int authority_page_fits(char* buf, size_t cap, int written, const char* title);
+
+/* The device's identity assertion (patent §3.2).
+ *
+ * Not a name being announced. The device signs
+ *
+ *     deviceId || counter || nonce || H(declaration)
+ *
+ * and the phone relays it to the service UNCHANGED. Two things follow, and
+ * both are the reason this exists rather than a bare identifier:
+ *
+ *   - the counter never repeats, so an assertion captured from this device
+ *     cannot be replayed to the service on its behalf;
+ *   - the declaration is signed over, so the phone cannot tell the service a
+ *     different offer than the machine actually made. That is what makes the
+ *     comparison at the far end mean something in both directions.
+ *
+ * The counter outlives a power cut for the same reason the replay counter
+ * does: a machine that restarts its count issues an assertion it has issued
+ * before.
+ */
+int authority_assert(const char* args, size_t args_len, mcp_writer_t* out);
+
+/* Hand the platform the declaration it will hash. Called after the page is
+ * rendered, because the hash has to cover what this node actually serves — a
+ * hash taken over an empty buffer proves the node made no offer at all. */
+void authority_set_spec(const char* spec);
 
 /* Whether the authority currently held was restored from storage rather than
  * granted in this run. A machine that came back up holding a rental it cannot
